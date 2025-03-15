@@ -1,27 +1,35 @@
 {
-  "name": "viorette",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev:server": "ts-node ./src/index.ts",
-    "dev:worker": "ts-node ./src/index-worker.ts",
-    "dev": "concurrently npm:dev:*",
-    "build": "tsc",
-    "start:server": "node ./dist/index.js",
-    "start:worker": "node ./dist/index-worker.js",
-    "start": "concurrently npm:start:*"
-  },
-  "dependencies": {
-    "@vendure/admin-ui-plugin": "3.1.6",
-    "@vendure/asset-server-plugin": "3.1.6",
-    "@vendure/core": "3.1.6",
-    "@vendure/email-plugin": "3.1.6",
-    "dotenv": "16.4.7",
-    "pg": "8.13.3"
-  },
-  "devDependencies": {
-    "@vendure/cli": "3.1.6",
-    "concurrently": "9.1.2",
-    "typescript": "5.3.3"
-  }
+    "name": "viorette",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev:server": "ts-node ./src/index.ts",
+        "dev:worker": "ts-node ./src/index-worker.ts",
+        "dev": "concurrently npm:dev:*",
+        "build": "tsc",
+        "start:server": "node ./dist/index.js",
+        "start:worker": "node ./dist/index-worker.js",
+        "start": "concurrently npm:start:*"
+    },
+    "dependencies": {
+        "@pinelab/vendure-plugin-admin-ui-helpers": "^1.3.0",
+        "@pinelab/vendure-plugin-metrics": "^1.7.0",
+        "@pinelab/vendure-plugin-modify-customer-orders": "^1.5.0",
+        "@pinelab/vendure-plugin-primary-collection": "^2.1.0",
+        "@pinelab/vendure-plugin-stock-monitoring": "^1.5.0",
+        "@sentry/node": "^7.120.3",
+        "@vendure/admin-ui-plugin": "3.1.6",
+        "@vendure/asset-server-plugin": "3.1.6",
+        "@vendure/core": "3.1.6",
+        "@vendure/email-plugin": "3.1.6",
+        "@vendure/sentry-plugin": "^3.1.7",
+        "@vendure/ui-devkit": "^3.1.7",
+        "dotenv": "16.4.7",
+        "pg": "8.13.3"
+    },
+    "devDependencies": {
+        "@vendure/cli": "3.1.6",
+        "concurrently": "9.1.2",
+        "typescript": "5.3.3"
+    }
 }
