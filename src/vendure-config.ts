@@ -11,11 +11,10 @@ import 'dotenv/config';
 import path from 'path';
 
 const IS_DEV = process.env.APP_ENV === 'dev';
-const serverPort = +process.env.PORT || 3000;
 
 export const config: VendureConfig = {
     apiOptions: {
-        port: serverPort,
+        port: +process.env.PORT || 3000,
         hostname: '0.0.0.0',
         adminApiPath: 'admin-api',
         shopApiPath: 'shop-api',
@@ -91,9 +90,9 @@ export const config: VendureConfig = {
         }),
         AdminUiPlugin.init({
             route: 'admin',
-            port: serverPort,
+            port: 3002,
             adminUiConfig: {
-                apiPort: serverPort,
+                apiPort: +process.env.PORT || 3000,
             },
         }),
     ],
