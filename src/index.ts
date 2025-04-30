@@ -9,3 +9,10 @@ runMigrations(config)
   .catch(err => {
     console.error('❌ Error starting Vendure:', err);
   });
+
+  process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION!', err);
+  });
+  process.on('unhandledRejection', (err) => {
+    console.error('UNHANDLED REJECTION!', err);
+  });
