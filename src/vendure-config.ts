@@ -4,31 +4,20 @@ import {
     DefaultSearchPlugin,
     VendureConfig,
 } from "@vendure/core";
+import { defaultEmailHandlers, EmailPlugin } from "@vendure/email-plugin";
 import {
-    defaultEmailHandlers,
-    EmailPlugin,
-    FileBasedTemplateLoader,
-} from "@vendure/email-plugin";
+    AssetServerPlugin,
+    configureS3AssetStorage,
+} from "@vendure/asset-server-plugin";
 import { AdminUiPlugin } from "@vendure/admin-ui-plugin";
 import "dotenv/config";
 import path from "path";
-import { SentryPlugin } from "@vendure/sentry-plugin";
-import {
-    cancelOrderButton,
-    completeOrderButton,
-} from "@pinelab/vendure-plugin-admin-ui-helpers";
-import { AssetServerPlugin } from "@vendure/asset-server-plugin";
-import { ModifyCustomerOrdersPlugin } from "@pinelab/vendure-plugin-modify-customer-orders";
-import { MetricsPlugin } from "@pinelab/vendure-plugin-metrics";
-import { compileUiExtensions } from "@vendure/ui-devkit/compiler";
-import { PrimaryCollectionPlugin } from "@pinelab/vendure-plugin-primary-collection";
 
 const IS_DEV = process.env.APP_ENV === "dev";
-const serverPort = +process.env.PORT || 3000;
 
 export const config: VendureConfig = {
     apiOptions: {
-        port: serverPort,
+        port: +(process.env.PORT || 3000),
         adminApiPath: "admin-api",
         shopApiPath: "shop-api",
         // The following options are useful in development mode,
@@ -37,11 +26,11 @@ export const config: VendureConfig = {
         ...(IS_DEV
             ? {
                   adminApiPlayground: {
-                      settings: { "request.credentials": "include" },
+                      settings: { "request.credentials": "include" } as any,
                   },
                   adminApiDebug: true,
                   shopApiPlayground: {
-                      settings: { "request.credentials": "include" },
+                      settings: { "request.credentials": "include" } as any,
                   },
                   shopApiDebug: true,
               }
@@ -62,43 +51,60 @@ export const config: VendureConfig = {
         // See the README.md "Migrations" section for an explanation of
         // the `synchronize` and `migrations` options.
         synchronize: false,
-        migrations: [path.join(__dirname, "./migrations/*.+(js|ts)")],
+        migrations: [path.join(__dirname, "./migrations/*.+(ts|js)")],
         logging: false,
         database: process.env.DB_NAME,
         schema: process.env.DB_SCHEMA,
         host: process.env.DB_HOST,
+        url: process.env.DB_URL,
         port: +process.env.DB_PORT,
         username: process.env.DB_USERNAME,
         password: process.env.DB_PASSWORD,
+        ssl: process.env.DB_CA_CERT
+            ? {
+                  ca: process.env.DB_CA_CERT,
+              }
+            : undefined,
     },
     paymentOptions: {
         paymentMethodHandlers: [dummyPaymentHandler],
     },
     // When adding or altering custom field definitions, the database will
     // need to be updated. See the "Migrations" section in README.md.
-    customFields: {},
+    customFields: {
+        Product: [
+            {
+                name: "test",
+                type: "string",
+            },
+        ],
+    },
     plugins: [
-        SentryPlugin.init({
-            dsn: process.env.SENTRY_DSN as string,
-            // Optional configuration
-            includeErrorTestMutation: true,
-            enableTracing: true,
-            // you can also pass in any of the options from @sentry/node
-            // for instance:
-            tracesSampleRate: 1.0,
-        }),
-        PrimaryCollectionPlugin.init({
-            customFieldUITabName: "Primary Collection",
-        }),
         AssetServerPlugin.init({
             route: "assets",
-            assetUploadDir: path.join(__dirname, "../static/assets"),
-            // For local dev, the correct value for assetUrlPrefix should
-            // be guessed correctly, but for production it will usually need
-            // to be set manually to match your production url.
-            assetUrlPrefix: IS_DEV
-                ? undefined
-                : "https://www.my-shop.com/assets/",
+            assetUploadDir:
+                process.env.ASSET_UPLOAD_DIR ||
+                path.join(__dirname, "../static/assets"),
+            // If the MINIO_ENDPOINT environment variable is set, we'll use
+            // Minio as the asset storage provider. Otherwise, we'll use the
+            // default local provider.
+            storageStrategyFactory: process.env.MINIO_ENDPOINT
+                ? configureS3AssetStorage({
+                      bucket: "vendure-assets",
+                      credentials: {
+                          accessKeyId: process.env.MINIO_ACCESS_KEY,
+                          secretAccessKey: process.env.MINIO_SECRET_KEY,
+                      },
+                      nativeS3Configuration: {
+                          endpoint: process.env.MINIO_ENDPOINT,
+                          forcePathStyle: true,
+                          signatureVersion: "v4",
+                          // The `region` is required by the AWS SDK even when using MinIO,
+                          // so we just use a dummy value here.
+                          region: "eu-west-1",
+                      },
+                  })
+                : undefined,
         }),
         DefaultJobQueuePlugin.init({ useDatabaseForBuffer: true }),
         DefaultSearchPlugin.init({
@@ -110,9 +116,7 @@ export const config: VendureConfig = {
             outputPath: path.join(__dirname, "../static/email/test-emails"),
             route: "mailbox",
             handlers: defaultEmailHandlers,
-            templateLoader: new FileBasedTemplateLoader(
-                path.join(__dirname, "../static/email/templates")
-            ),
+            templatePath: path.join(__dirname, "../static/email/templates"),
             globalTemplateVars: {
                 // The following variables will change depending on your storefront implementation.
                 // Here we are assuming a storefront running at http://localhost:8080.
@@ -123,40 +127,9 @@ export const config: VendureConfig = {
                     "http://localhost:8080/verify-email-address-change",
             },
         }),
-        ModifyCustomerOrdersPlugin.init({
-            /**
-             * Automatically make completed draft orders active orders for the connected customer
-             */
-            autoAssignDraftOrdersToCustomer: true,
-        }),
-        MetricsPlugin.init({
-            // Consider displaying fewer months for shops with a lot of orders
-            displayPastMonths: 13,
-        }),
         AdminUiPlugin.init({
             route: "admin",
-            port: serverPort + 2,
-            adminUiConfig: {
-                apiPort: serverPort,
-            },
-            app: compileUiExtensions({
-                outputPath: path.join(__dirname, "__admin-ui"),
-                extensions: [
-                    ModifyCustomerOrdersPlugin.ui,
-                    MetricsPlugin.ui,
-                    /**
-                     * Adds a 'Complete order' to the order detail overview.
-                     * This transitions the order to the `Delivered` state.
-                     */ completeOrderButton,
-                    /**
-                     * Adds a 'Cancel order' to the order detail overview.
-                     * Cancels and refunds the order.
-                     */
-                    cancelOrderButton,
-                    PrimaryCollectionPlugin.ui,
-                ], // Add the "Convert to draft" button
-                devMode: true,
-            }),
+            port: 3002,
         }),
     ],
 };
